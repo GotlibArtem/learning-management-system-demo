@@ -1,0 +1,32 @@
+---
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Allow all access from vlan
+  community.general.ufw:
+    rule: allow
+    src: '{{ item }}'
+  loop:
+    - "{{ vlan }}"
+
+- name: Allow SOCKS5 tunnel access from Docker gwbridge network
+  community.general.ufw:
+    rule: allow
+    port: 1338
+    proto: tcp
+    src: 172.18.0.0/16
+
+- name: Deny access to SOCKS5 tunnel from others
+  community.general.ufw:
+    rule: deny
+    port: 1338
+    proto: tcp
+
+- name: Deny all
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    policy: deny

@@ -1,0 +1,44 @@
+---
+- name: Common configuration
+  hosts: all
+  vars_files:
+    - vars/main.yml
+  roles:
+    - common
+
+- name: DB
+  hosts: db
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+  roles:
+    - role: pg_master
+      tags: postgres
+
+- name: Swarm managers
+  hosts: managers
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+  roles:
+    - role: swarm_manager
+      tags: swarm
+    - role: proxy_tunnel
+      tags: tunnel
+
+- name: Swarm workers
+  hosts: workers
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+  roles:
+    - role: swarm_worker
+
+- name: Redis
+  hosts: redis
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+  roles:
+    - role: redis_server
+      tags: redis

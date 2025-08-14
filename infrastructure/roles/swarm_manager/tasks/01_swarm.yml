@@ -1,0 +1,30 @@
+---
+- name: Make sure swarm is initialized
+  community.docker.docker_swarm:
+    state: present
+    advertise_addr: "{{ swarm_manager_address }}"
+    listen_addr: "{{ swarm_manager_address }}"
+
+- name: Get swarm info
+  community.docker.docker_swarm_info:
+    nodes: true
+  register: swarm
+
+- name: Store join tokens
+  ansible.builtin.set_fact:
+    worker_join_token: "{{ swarm.swarm_facts.JoinTokens.Worker }}"
+    manager_join_token: "{{ swarm.swarm_facts.JoinTokens.Manager }}"
+
+- name: Log in to the container registry
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_login }}"
+    password: "{{ ghcr_token }}"
+
+- name: Make sure /srv/env directory exists
+  ansible.builtin.file:
+    path: /srv/env
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"

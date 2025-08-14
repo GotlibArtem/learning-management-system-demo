@@ -1,0 +1,10 @@
+---
+skip_list:
+    - meta-no-info
+    - ignore-errors
+    - yaml[line-length]
+exclude_paths:
+    - mitogen
+    - vars/secrets.yml
+    - venv
+    - .venv

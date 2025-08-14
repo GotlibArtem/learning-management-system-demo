@@ -1,0 +1,16 @@
+---
+postgresql_host: db.demo.internal
+postgresql_port: 5432
+
+redis_host: cache.demo.internal
+
+swarm_manager_address: 10.10.0.10
+swarm_main_manager_host_name: demo-manager
+
+vlan: 10.10.0.0/24
+
+absolute_server: demo.example.com
+backend_app_server: demo.example.com
+
+proxy_host: "{{ swarm_manager_address }}"
+proxy_port: 1338

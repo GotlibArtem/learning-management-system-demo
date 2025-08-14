@@ -1,0 +1,61 @@
+from app.conf.environ import env
+
+
+# Django REST Framework
+# https://www.django-rest-framework.org/api-guide/settings/
+
+DISABLE_THROTTLING = env("DISABLE_THROTTLING", cast=bool, default=False)
+MAX_PAGE_SIZE = env("MAX_PAGE_SIZE", cast=int, default=1000)
+
+REST_FRAMEWORK = {
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticatedOrReadOnly",),
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "app.api.renderers.AppJSONRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "djangorestframework_camel_case.parser.CamelCaseJSONParser",
+    ],
+    "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
+    "DEFAULT_PAGINATION_CLASS": "app.api.pagination.AppPagination",
+    "PAGE_SIZE": env("PAGE_SIZE", cast=int, default=20),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon-auth": "5/min",
+        "anon-email-code-auth": "10/hour",
+        "anon-sign-up": "5/hour",
+        "anon-sign-in": "10/hour",
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "app.exceptions.app_service_exception_handler",
+}
+
+JSON_CAMEL_CASE = {
+    "RENDERER_CLASS": "drf_orjson_renderer.renderers.ORJSONRenderer",
+}
+# Adding session auth and browsable API at the developer machine
+if env("DEBUG", cast=bool, default=False):
+    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append("rest_framework.authentication.SessionAuthentication")
+    REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"].append("djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer")
+
+
+# Set up drf_spectacular, https://drf-spectacular.readthedocs.io/en/latest/settings.html
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Our fancy API",
+    "DESCRIPTION": "So great, needs no docs",
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "CAMELIZE_NAMES": True,
+    "SCHEMA_PATH_PREFIX": "/api/demo",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "drf_spectacular.contrib.djangorestframework_camel_case.camelize_serializer_fields",
+    ],
+    "ENUM_NAME_OVERRIDES": {
+        "ChargeMethodEnum": "payments.models.payment.PaymentMethod",
+    },
+}

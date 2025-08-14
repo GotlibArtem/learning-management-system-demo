@@ -1,0 +1,10 @@
+---
+- name: Apply netplan
+  ansible.builtin.command: /usr/sbin/netplan apply  # noqa: no-changed-when
+  become: true
+
+- name: Reload sshd
+  ansible.builtin.service:
+    name: ssh
+    state: reloaded
+  become: true

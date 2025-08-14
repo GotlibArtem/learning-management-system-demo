@@ -1,0 +1,25 @@
+[Unit]
+Description=SSH SOCKS5 Tunnel for Google BigQuery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment="AUTOSSH_GATETIME=0"
+LimitNOFILE=65536
+ExecStart=/usr/bin/autossh -M 0 -N \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -o TCPKeepAlive=yes \
+  -o IdentityFile=/root/.ssh/google_bq_tunnel_key \
+  -o IdentitiesOnly=yes \
+  -D 0.0.0.0:1338 \
+  -p 64155 \
+  eventproxy@xxx.xxx.xx.xxx
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

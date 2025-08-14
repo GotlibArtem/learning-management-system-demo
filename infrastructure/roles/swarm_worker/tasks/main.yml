@@ -1,0 +1,13 @@
+---
+- name: Log in to the container registry
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_login }}"
+    password: "{{ ghcr_token }}"
+
+- name: Join the swarm
+  community.docker.docker_swarm:
+    state: join
+    remote_addrs:
+      - "{{ swarm_manager_address }}"
+    join_token: "{{ hostvars[groups['managers'][0]]['worker_join_token'] }}"

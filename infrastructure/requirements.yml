@@ -1,0 +1,14 @@
+---
+roles:
+  - name: geerlingguy.swap
+    version: 1.0.2
+  - name: geerlingguy.security
+    version: 2.2.0
+  - name: geerlingguy.redis
+    version: 1.9.0
+
+collections:
+  - community.general
+  - community.docker
+  - community.postgresql
+  - community.crypto

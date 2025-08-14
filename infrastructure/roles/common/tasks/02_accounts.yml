@@ -1,0 +1,40 @@
+---
+- name: Add basic groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+  loop:
+    - ssh
+    - docker
+
+- name: Add accounts
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups:
+      - root
+      - sudo
+      - ssh
+    shell: /bin/bash
+  loop:
+    - artem-gotlib
+    - infra
+
+- name: Add ssh keys
+  ansible.posix.authorized_key:
+    user: "{{ item.username }}"
+    key: "{{ item.key }}"
+  loop:
+    - username: artem-gotlib
+      key: https://github.com/Artem-Gotlib.keys
+    - username: infra
+      key: "{{ lookup('file', 'keys/infra.pub') }}"
+
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Limit access to only users of _ssh group
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    search_string: AllowGroups
+    line: AllowGroups ssh
+  notify:
+    - Reload sshd

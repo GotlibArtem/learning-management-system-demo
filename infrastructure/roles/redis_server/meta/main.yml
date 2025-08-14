@@ -1,0 +1,15 @@
+---
+dependencies:
+  - role: geerlingguy.redis
+    vars:
+      redis_maxmemory_policy: allkeys-lru
+      redis_maxmemory: "2560mb" # Maximum memory limit (2.5 Gb,62.5% of available RAM)
+      redis_bind_interface: "0.0.0.0"
+      redis_requirepass: "{{ redis_password }}"
+      redis_save:
+        - "900 1" # Save if at least 1 key changed in last 900 seconds (15 minutes)
+        - "300 10" # Save if at least 10 keys changed in last 300 seconds (5 minutes)
+        - "60 10000" # Save if at least 10000 keys changed in last 60 seconds
+      redis_rdbcompression: "yes"
+      redis_dbdir: /var/lib/redis # Data directory where Redis will store its files
+      redis_dbfilename: dump.rdb # Filename for the RDB file

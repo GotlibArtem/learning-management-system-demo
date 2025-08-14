@@ -1,0 +1,7 @@
+---
+- name: Add pg_trgm extension to database
+  community.postgresql.postgresql_ext:
+    name: pg_trgm
+    db: "{{ postgresql_database }}"
+    schema: public
+    state: present

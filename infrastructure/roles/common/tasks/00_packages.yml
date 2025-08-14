@@ -1,0 +1,11 @@
+---
+- name: Install basic common packages
+  ansible.builtin.apt:
+    name:
+      - acl
+      - net-tools
+      - gpg
+      - python3-passlib
+      - vim
+      - mariadb-client
+      - ufw

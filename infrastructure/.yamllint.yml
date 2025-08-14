@@ -1,0 +1,23 @@
+---
+extends: default
+
+ignore:
+  - venv/
+  - .venv/
+  - mitogen/
+  - vars/secrets.yml
+
+rules:
+  line-length:
+    max: 160
+  # The rules bellow to make compatible with ansible-lint
+  # https://ansible.readthedocs.io/projects/lint/rules/yaml/
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    min-spaces-inside: 0 # yamllint defaults to 0
+    max-spaces-inside: 1 # yamllint defaults to 0
+  octal-values:
+    forbid-implicit-octal: true # yamllint defaults to false
+    forbid-explicit-octal: true # yamllint defaults to false

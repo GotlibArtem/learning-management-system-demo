@@ -1,0 +1,31 @@
+---
+- name: Ensure autossh is installed
+  ansible.builtin.apt:
+    name: autossh
+    state: present
+    update_cache: true
+
+- name: Ensure /root/.ssh directory exists
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    mode: '0700'
+
+- name: Copy private SSH key for autossh tunnel
+  ansible.builtin.copy:
+    src: google_bq_tunnel_key
+    dest: /root/.ssh/google_bq_tunnel_key
+    mode: '0600'
+
+- name: Deploy systemd unit for autossh tunnel
+  ansible.builtin.copy:
+    src: autossh-bq.service
+    dest: /etc/systemd/system/autossh-bq.service
+    mode: '0644'
+
+- name: Reload systemd and start autossh tunnel
+  ansible.builtin.systemd:
+    name: autossh-bq
+    enabled: true
+    state: restarted
+    daemon_reload: true

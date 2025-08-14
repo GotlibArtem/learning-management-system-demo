@@ -1,0 +1,13 @@
+---
+- name: Configure docker swarm manager
+  ansible.builtin.include_tasks: 01_swarm.yml
+- name: Configure CI access
+  ansible.builtin.include_tasks: 02_ci.yml
+
+- name: Configure swarm stacks
+  ansible.builtin.include_tasks: "stacks/{{ stack }}.yml"
+  loop:
+    - site
+    - backend
+  loop_control:
+    loop_var: stack

@@ -1,0 +1,9 @@
+---
+- name: Install common packages
+  ansible.builtin.include_tasks: 00_packages.yml
+- name: Configure sudo
+  ansible.builtin.include_tasks: 01_sudo.yml
+- name: Add\Remove user accounts
+  ansible.builtin.include_tasks: 02_accounts.yml
+- name: Add\Remove firewall rules
+  ansible.builtin.include_tasks: 03_firewall.yml

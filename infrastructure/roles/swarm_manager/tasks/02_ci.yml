@@ -1,0 +1,25 @@
+---
+- name: Create CI user
+  ansible.builtin.user:
+    name: ci
+    groups:
+      - ssh
+      - docker
+
+- name: Configure CI key
+  ansible.posix.authorized_key:
+    user: ci
+    exclusive: true
+    key: "{{ lookup('file', 'keys/ci.pub') }}"
+
+- name: Make sure users are able to access docker registry
+  become: true
+  become_user: "{{ item }}"
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_login }}"
+    password: "{{ ghcr_token }}"
+
+  loop:
+    - ci
+    - root

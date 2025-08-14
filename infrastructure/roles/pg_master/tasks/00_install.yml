@@ -1,0 +1,46 @@
+---
+- name: Add postgresql.org GPG key
+  ansible.builtin.apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+
+- name: Add postgresql.org APT repo
+  ansible.builtin.apt_repository:
+    repo: deb https://apt.postgresql.org/pub/repos/apt noble-pgdg main
+
+- name: Install postgresql server
+  ansible.builtin.apt:
+    name: postgresql-16
+
+- name: Install python module
+  ansible.builtin.apt:
+    name: python3-psycopg2
+
+- name: Apply postgres daemon configuration
+  ansible.builtin.template:
+    src: templates/postgresql.conf.j2
+    dest: /etc/postgresql/16/main/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  notify:
+    - Restart postgres
+
+- name: Enable local login
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/16/main/pg_hba.conf
+    contype: local
+    users: postgres
+    method: trust
+  notify:
+    - Reload postgres
+
+- name: Reload postgres if required
+  ansible.builtin.meta: flush_handlers  # let pg be restarted first time we do this
+
+- name: Enable vlan login
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/16/main/pg_hba.conf
+    contype: hostssl
+    users: all
+    method: md5
+    source: "{{ vlan }}"

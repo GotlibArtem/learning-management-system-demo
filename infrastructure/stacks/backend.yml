@@ -1,0 +1,223 @@
+---
+- name: Make sure stack directory is present
+  file:
+    path: /srv/lms
+    state: directory
+
+- name: Deploy environment files
+  template:
+    src: env/{{ item }}
+    dest: /srv/env/{{ item }}
+  loop:
+    - lms.env
+
+- name: Deploy the lms stack
+  docker_stack:
+    name: lms
+    resolve_image: never
+    with_registry_auth: true
+    compose:
+      - version: "3.6"
+        x-deploy-options: &deploy
+          update_config:
+            parallelism: 2
+            delay: 3s
+            failure_action: rollback
+            order: start-first
+
+        x-defaults: &defaults
+          env_file:
+            - /srv/env/lms.env
+          environment: &env
+            CELERY_BROKER_URL: "redis://:{{ redis_password }}@{{ redis_host }}:6379/0"
+            CELERY_TASK_DEFAULT_QUEUE: "{{ celery_task_default_queue }}"
+            CACHE_URL: "redis://:{{ redis_password }}@{{ redis_host }}:6379/1"
+            SECRET_KEY: "{{ lms_secret_key }}"
+            JWT_PRIVATE_KEY: "{{ lms_jwt_private_key }}"
+            JWT_PUBLIC_KEY: "{{ lms_jwt_public_key }}"
+            DATABASE_URL: "postgres://{{ postgresql_user }}:{{ postgresql_password }}@{{ postgresql_host }}:{{ postgresql_port }}/{{ postgresql_database }}"
+            ABSOLUTE_URL: "https://{{ absolute_server }}"
+            BACKEND_APP_URL: "https://{{ backend_app_server }}"
+            MINDBOX_ENDPOINT_ID: "{{ mindbox.endpoint_id }}"
+            MINDBOX_ENDPOINT_SECRET_KEY: "{{ mindbox.endpoint_secret_key }}"
+            KINESCOPE_SECRET_KEY: "{{ kinescope_secret_key }}"
+            AWS_ACCESS_KEY_ID: "{{ selectel.s3_access_key_id }}"
+            AWS_SECRET_ACCESS_KEY: "{{ selectel.s3_secret_access_key }}"
+            CACHALOT_ENABLED: "true"
+            GOOGLE_PROJECT_ID: "{{ google.project_id }}"
+            GOOGLE_PRIVATE_KEY_ID: "{{ google.private_key_id }}"
+            GOOGLE_PRIVATE_KEY: "{{ google.private_key }}"
+            GOOGLE_CLIENT_EMAIL: "{{ google.client_email }}"
+            GOOGLE_CLIENT_ID: "{{ google.client_id }}"
+            GOOGLE_CLIENT_X509_CERT_URL: "{{ google.client_x509_cert_url }}"
+            GOOGLE_SCORES_SHEET_ID: "{{ google.scores_sheet_id }}"
+            GOOGLE_SCORES_SHEET_RANGE: "{{ google.scores_sheet_range }}"
+            GOOGLE_OAUTH_ID: "{{ google.oauth_client_id }}"
+            GOOGLE_OAUTH_SECRET: "{{ google.oauth_client_secret }}"
+            BIG_QUERY_TYPE: "{{ big_query.type }}"
+            BIG_QUERY_PROJECT_ID: "{{ big_query.project_id }}"
+            BIG_QUERY_PRIVATE_KEY_ID: "{{ big_query.private_key_id }}"
+            BIG_QUERY_PRIVATE_KEY: "{{ big_query.private_key }}"
+            BIG_QUERY_CLIENT_EMAIL: "{{ big_query.client_email }}"
+            BIG_QUERY_CLIENT_ID: "{{ big_query.client_id }}"
+            BIG_QUERY_AUTH_URI: "{{ big_query.auth_uri }}"
+            BIG_QUERY_TOKEN_URI: "{{ big_query.token_uri }}"
+            BIG_QUERY_AUTH_PROVIDER_X509_CERT_URL: "{{ big_query.auth_provider_x509_cert_url }}"
+            BIG_QUERY_CLIENT_X509_CERT_URL: "{{ big_query.client_x509_cert_url }}"
+            BIG_QUERY_UNIVERSE_DOMAIN: "{{ big_query.universe_domain }}"
+            BIG_QUERY_TASK_QUEUE: "{{ big_query_task_queue }}"
+            YA_OAUTH_ID: "{{ yandex.oauth_client_id }}"
+            YA_OAUTH_SECRET: "{{ yandex.oauth_client_secret }}"
+            MAILRU_OAUTH_ID: "{{ mailru.oauth_client_id }}"
+            MAILRU_OAUTH_SECRET: "{{ mailru.oauth_client_secret }}"
+            COMMENT_PROVIDER_API_KEY: "{{ anycomment_api_key }}"
+            APPLE_ID_CLIENT: "{{ apple.id_client }}"
+            APPLE_ID_TEAM: "{{ apple.id_team }}"
+            APPLE_ID_KEY: "{{ apple.id_key }}"
+            APPLE_ID_SECRET: "{{ apple.id_secret }}"
+            APPLE_IAP_PRODUCTION_URL: "{{ apple.iap_production_url }}"
+            APPLE_IAP_SANDBOX_URL: "{{ apple.iap_sandbox_url }}"
+            APPLE_SHARED_SECRET: "{{ apple.shared_secret }}"
+            PROXY_URL: "socks5h://{{ proxy_host }}:{{ proxy_port }}"
+          networks:
+            - stacknet
+          deploy:
+            <<: *deploy
+
+        services:
+          redis:
+            image: redis:7-alpine
+            command: redis-server --save "" --appendonly no
+            deploy:
+              <<: *deploy
+              replicas: 1
+            networks:
+              - stacknet
+
+          frontend:
+            image: ghcr.io/art-lms/lms-frontend
+            deploy:
+              <<: *deploy
+              replicas: 1
+              labels:
+                - traefik.enable=true
+                - traefik.swarm.network=traefiknet
+
+                - traefik.http.middlewares.no-cache.headers.customresponseheaders.Cache-Control=no-cache,no-store,must-revalidate
+                - traefik.http.middlewares.no-cache.headers.customresponseheaders.Pragma=no-cache
+                - traefik.http.middlewares.no-cache.headers.customresponseheaders.Expires=0
+
+                - traefik.http.middlewares.compression.compress=true
+
+                - traefik.http.middlewares.cache-static.headers.customresponseheaders.Cache-Control=public,max-age=31536000,immutable
+                - traefik.http.middlewares.cache-static.headers.customresponseheaders.Expires=31536000
+
+                - traefik.http.middlewares.frontend-tech.basicauth.users=tech:{{ tech_auth_password | password_hash('bcrypt') | replace('$', '$$') }}
+
+                - traefik.http.routers.frontend.rule=Host(`{{ absolute_server }}`)
+                - traefik.http.routers.frontend.entrypoints=websecure
+                - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+                - traefik.http.routers.frontend.middlewares=no-cache,compression
+                - traefik.http.routers.frontend.priority=1
+                - traefik.http.services.frontend.loadbalancer.server.port=80
+
+                - traefik.http.routers.frontend-static.rule=Host(`{{ absolute_server }}`) && PathRegexp(`.*\.(css|js|png|jpg|webp|svg|riv|woff2|otf)$$`)
+                - traefik.http.routers.frontend-static.entrypoints=websecure
+                - traefik.http.routers.frontend-static.tls.certresolver=letsencrypt
+                - traefik.http.routers.frontend-static.middlewares=cache-static,compression
+                - traefik.http.routers.frontend-static.priority=100
+                - traefik.http.routers.frontend-static.service=frontend
+
+                - traefik.http.routers.frontend-techzone.rule=Host(`{{ absolute_server }}`) && PathPrefix(`/tech/storybook`)
+                - traefik.http.routers.frontend-techzone.entrypoints=websecure
+                - traefik.http.routers.frontend-techzone.tls.certresolver=letsencrypt
+                - traefik.http.routers.frontend-techzone.middlewares=frontend-tech,no-cache,compression
+                - traefik.http.routers.frontend-techzone.priority=50
+            networks:
+              - stacknet
+              - traefiknet
+
+          backend:
+            <<: *defaults
+            image: ghcr.io/art-lms/lms-backend
+            deploy:
+              <<: *deploy
+              replicas: 8
+              labels:
+                - traefik.enable=true
+                - traefik.swarm.network=traefiknet
+                - |
+                  traefik.http.routers.backendapp.rule=
+                  Host(`{{ backend_app_server }}`) && (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/admin`))
+                - traefik.http.routers.backendapp.entrypoints=websecure
+                - traefik.http.routers.backendapp.tls.certresolver=letsencrypt
+                - traefik.http.routers.backendapp.middlewares=compression
+                - traefik.http.services.backend.loadbalancer.server.port=8000
+
+                # password protected tech zone
+                - traefik.http.middlewares.backend-tech.basicauth.users=tech:{{ tech_auth_password | password_hash('bcrypt') | replace('$', '$$') }}
+                - traefik.http.routers.backend-techzone.rule=Host(`{{ backend_app_server }}`) && PathPrefix(`/tech/`)
+                - traefik.http.routers.backend-techzone.entrypoints=websecure
+                - traefik.http.routers.backend-techzone.tls.certresolver=letsencrypt
+                - traefik.http.routers.backend-techzone.middlewares=backend-tech,compression
+            networks:
+              - traefiknet
+              - stacknet
+
+          worker:
+            <<: *defaults
+            image: ghcr.io/art-lms/lms-worker
+            deploy:
+              <<: *deploy
+              replicas: 3
+            environment:
+              <<: *env
+              QUEUE: "{{ celery_task_default_queue }}"
+              CONCURRENCY: 2
+              SOFT_TIME_LIMIT: 120
+            networks:
+              - stacknet
+
+          worker_bigquery:
+            <<: *defaults
+            image: ghcr.io/art-lms/lms-worker-bigquery
+            deploy:
+              <<: *deploy
+              replicas: 1
+            environment:
+              <<: *env
+              QUEUE: "{{ big_query_task_queue }}"
+              CONCURRENCY: 8
+              SOFT_TIME_LIMIT: 300
+            networks:
+              - stacknet
+
+          scheduler:
+            <<: *defaults
+            image: ghcr.io/art-lms/lms-scheduler
+            deploy:
+              <<: *deploy
+              replicas: 1
+            networks:
+              - stacknet
+
+          postgres-backup:
+            image: f213/postgres-backup-s3:1.2.1
+            environment:
+              SCHEDULE: 0 30 */2 * * * * # every 2 hours at HH:30
+              POSTGRES_USER: "{{ postgresql_user }}"
+              POSTGRES_DATABASE: "{{ postgresql_database }}"
+              POSTGRES_PASSWORD: "{{ postgresql_password }}"
+              POSTGRES_HOST: "{{ postgresql_host }}"
+              POSTGRES_PORT: "{{ postgresql_port }}"
+              S3_ENDPOINT: "{{ selectel.s3_db_backups_endpoint }}"
+              S3_ACCESS_KEY_ID: "{{ selectel.s3_access_key_id }}"
+              S3_SECRET_ACCESS_KEY: "{{ selectel.s3_secret_access_key }}"
+              S3_BUCKET: lms-db-backups
+              SUCCESS_WEBHOOK: "{{ db_backups_success_webook }}"
+
+        networks:
+          traefiknet:
+            external: true
+          stacknet:
+            driver: overlay
